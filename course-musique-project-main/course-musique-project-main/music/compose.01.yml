@@ -1,0 +1,16 @@
+services:
+    navidrome:
+        image: deluan/navidrome:0.59.0
+        container_name: navidrome
+        user: "1001:1001"
+        ports:
+            - "4533:4533"
+        volumes:
+            - ./Musique:/music
+            - ./data/navidrome:/data
+            - ./config/navidrome:/config
+        environment:
+            - PUID=1001
+            - PGID=1001
+            - TZ=Europe/Paris
+        restart: unless-stopped 

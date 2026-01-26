@@ -1,0 +1,40 @@
+{
+    # Global options - no external ports
+    admin 0.0.0.0:2020
+    log {
+        output stdout
+        level INFO
+    }
+}
+
+# Internal public-facing server (no external exposure)
+:80 {
+    # Log requests
+    log {
+        output stdout
+    }
+    
+    # Handle all hosts
+    @anyhost {
+        not remote_ip 127.0.0.1
+    }
+    
+    # Match all hosts
+    handle @anyhost {
+        # Serve frontend assets
+        handle / {
+            reverse_proxy frontend:3000
+        }
+        
+        # API routes
+        handle /api/* {
+            uri strip_prefix /api
+            reverse_proxy backend:8000
+        }
+        
+        # Health check endpoint
+        handle /health {
+            respond "PUBLIC OK" 200
+        }
+    }
+}

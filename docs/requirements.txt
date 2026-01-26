@@ -1,0 +1,10 @@
+# Web scraping dependencies
+aiohttp>=3.9.1
+beautifulsoup4>=4.12.2
+crawl4ai>=0.1.0
+lxml>=4.9.3
+requests>=2.31.0
+
+# Vectorization - API based (no local ML)
+numpy>=1.24.3
+faiss-cpu>=1.7.4  # Still needed for vector storage

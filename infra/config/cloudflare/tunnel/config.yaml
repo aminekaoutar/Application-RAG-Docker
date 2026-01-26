@@ -1,0 +1,13 @@
+{
+  "tunnel": "c7b37d00-0aed-492e-9e40-3298bb31f4aa",
+  "credentials-file": "/etc/cloudflared/cert.json",
+  "ingress": [
+    {
+      "hostname": "tunnel.trycloudflare.com",
+      "service": "http://caddy-public:8081"
+    },
+    {
+      "service": "http_status:404"
+    }
+  ]
+}

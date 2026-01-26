@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Scraper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f2f5; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { color: #1a1a1a; margin-bottom: 24px; text-align: center; }
+        input, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 16px; font-size: 16px; }
+        button { background: #1877f2; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 8px; }
+        button:hover { background: #166fe5; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { padding: 16px; border-radius: 4px; margin-top: 16px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .loading { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .chat { margin-top: 32px; }
+        .messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 16px; background: #fafafa; margin-bottom: 16px; }
+        .message { padding: 8px 12px; margin-bottom: 8px; border-radius: 18px; max-width: 80%; }
+        .user { background: #1877f2; color: white; margin-left: auto; text-align: right; }
+        .bot { background: #e4e6eb; color: #050505; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🌐 Website Scraper</h1>
+            <input type="url" id="url" placeholder="Enter website URL (e.g., https://digisand.ma)">
+            <button onclick="scrape()">Scrape</button>
+            <button onclick="clearAll()">Clear</button>
+            <div id="result"></div>
+        </div>
+
+        <div class="card chat">
+            <h2>💬 Ask Questions</h2>
+            <div id="messages" class="messages"></div>
+            <textarea id="question" placeholder="Ask about the scraped content..." rows="3"></textarea>
+            <button onclick="ask()">Ask</button>
+            <button onclick="clearChat()">Clear Chat</button>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api';
+        
+        async function scrape() {
+            const url = document.getElementById('url').value;
+            const result = document.getElementById('result');
+            
+            if (!url) return showMessage(result, 'Please enter a URL', 'error');
+            
+            showMessage(result, 'Scraping...', 'loading');
+            
+            try {
+                const res = await fetch(`${API}/scrape`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url})
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showMessage(result, `✅ Success! Scraped: ${data.data.title}`, 'success');
+                } else {
+                    showMessage(result, `Error: ${data.detail}`, 'error');
+                }
+            } catch (err) {
+                showMessage(result, `Connection error: ${err.message}`, 'error');
+            }
+        }
+        
+        async function ask() {
+            const q = document.getElementById('question').value;
+            const msgs = document.getElementById('messages');
+            
+            if (!q.trim()) return;
+            
+            addMessage(msgs, q, 'user');
+            
+            try {
+                const res = await fetch(`${API}/query`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question: q})
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    addMessage(msgs, data.answer, 'bot');
+                    document.getElementById('question').value = '';
+                } else {
+                    addMessage(msgs, `Error: ${data.detail}`, 'bot');
+                }
+            } catch (err) {
+                addMessage(msgs, `Error: ${err.message}`, 'bot');
+            }
+        }
+        
+        function showMessage(el, text, type) {
+            el.innerHTML = `<div class="result ${type}">${text}</div>`;
+        }
+        
+        function addMessage(container, text, sender) {
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
+            div.textContent = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function clearAll() {
+            document.getElementById('url').value = '';
+            document.getElementById('result').innerHTML = '';
+        }
+        
+        function clearChat() {
+            document.getElementById('messages').innerHTML = '';
+            document.getElementById('question').value = '';
+        }
+        
+        document.getElementById('question').addEventListener('keypress', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                ask();
+            }
+        });
+    </script>
+</body>
+</html>

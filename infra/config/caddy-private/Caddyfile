@@ -1,0 +1,33 @@
+{
+    # Global options
+    admin 0.0.0.0:2019
+    log {
+        output stdout
+        level INFO
+    }
+}
+
+# Public facing server
+:80 {
+    # Log requests
+    log {
+        output stdout
+    }
+    
+    # Route all traffic through caddy-public
+    handle {
+        reverse_proxy caddy-public:8081
+    }
+}
+
+:443 {
+    # Log requests
+    log {
+        output stdout
+    }
+    
+    # Route all traffic through caddy-public
+    handle {
+        reverse_proxy caddy-public:8081
+    }
+}

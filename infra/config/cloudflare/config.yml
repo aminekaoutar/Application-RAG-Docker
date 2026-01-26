@@ -1,0 +1,5 @@
+{
+  "loglevel": "info",
+  "transport-loglevel": "info",
+  "no-autoupdate": true
+}

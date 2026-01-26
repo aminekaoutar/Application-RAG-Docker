@@ -1,0 +1,48 @@
+version: '3'
+
+vars:
+  STACKS: infra music
+# Changer pour vos stack !!!
+
+tasks:
+  up:
+    desc: Start all stacks
+    cmds:
+      - task: run
+        vars: {CMD: "up -d"}
+
+  down:
+    desc: Stop all stacks
+    cmds:
+      - task: run
+        vars: {CMD: "down"}
+
+  build:
+    desc: Build all stacks
+    cmds:
+      - task: run
+        vars: {CMD: "build"}
+
+  pull:
+    desc: Pull images for all stacks
+    cmds:
+      - task: run
+        vars: {CMD: "pull"}
+
+  logs:
+    desc: View logs for all stacks
+    cmds:
+      - task: run
+        vars: {CMD: "logs -f"}
+
+  restart:
+    desc: Restart all stacks
+    cmds:
+      - task: run
+        vars: {CMD: "restart"}
+
+  run:
+    internal: true
+    cmds:
+      - for: { var: STACKS }
+        cmd: docker compose -f {{.ITEM}}/compose.yml {{.CMD}}

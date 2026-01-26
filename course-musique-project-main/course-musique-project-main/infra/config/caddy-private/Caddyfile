@@ -1,0 +1,19 @@
+lidarr.localhost {
+    reverse_proxy lidarr:8686
+}
+
+deluge.localhost {
+    reverse_proxy deluge:8112
+}
+
+prowlarr.localhost {
+    reverse_proxy prowlarr:9696
+}
+
+beets.localhost {
+    reverse_proxy beets:8337
+}
+
+dockge.localhost {
+    reverse_proxy dockge:5001
+}

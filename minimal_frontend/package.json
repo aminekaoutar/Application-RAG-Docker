@@ -1,0 +1,13 @@
+{
+  "name": "minimal-frontend",
+  "version": "1.0.0",
+  "description": "Minimal web scraper frontend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}

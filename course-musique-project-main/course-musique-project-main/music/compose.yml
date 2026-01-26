@@ -1,0 +1,115 @@
+services:
+    navidrome:
+        image: deluan/navidrome:0.59.0
+        container_name: navidrome
+        user: "${PUID}:${PGID}"
+        volumes:
+            - ./Musique:/music
+            - ./data/navidrome:/data
+            - ./config/navidrome:/config
+        environment:
+            - PUID=${PUID}
+            - PGID=${PGID}
+            - TZ=${TZ}
+        networks:
+            - public
+        restart: unless-stopped
+
+    lidarr:
+        image: lscr.io/linuxserver/lidarr:3.1.0
+        container_name: lidarr
+        user: "${PUID}:${PGID}"
+        environment:
+            - PUID=${PUID}
+            - PGID=${PGID}
+            - TZ=${TZ}
+        volumes:
+            - ./data/lidarr:/config
+            - ./Musique:/music #optional
+            - ./data/downloads:/downloads #optional
+        networks:
+            - private
+            - internet
+        restart: unless-stopped
+
+    deluge:
+        image: lscr.io/linuxserver/deluge:2.2.0
+        container_name: deluge
+        user: "${PUID}:${PGID}"
+        environment:
+            - PUID=${PUID}
+            - PGID=${PGID}
+            - TZ=${TZ}
+        volumes:
+            - ./data/deluge:/config
+            - ./data/downloads:/downloads
+        ports:
+            - 6881:6881
+            - 6881:6881/udp
+        networks:
+            - private
+            - internet
+        restart: unless-stopped
+
+    prowlarr:
+        image: lscr.io/linuxserver/prowlarr:2.3.0
+        container_name: prowlarr
+        user: "${PUID}:${PGID}"
+        environment:
+            - PUID=${PUID}
+            - PGID=${PGID}
+            - TZ=${TZ}
+        volumes:
+            - ./data/prowlarr:/config
+        networks:
+            - private
+            - internet
+        restart: unless-stopped
+
+    beets:
+        image: lscr.io/linuxserver/beets:2.5.1
+        container_name: beets
+        user: "${PUID}:${PGID}"
+        environment:
+            - PUID=${PUID}
+            - PGID=${PGID}
+            - TZ=${TZ}
+        volumes:
+            - ./config/beets:/config
+            - ./Musique:/music
+            - ./data/downloads:/downloads
+        networks:
+            - private
+        restart: unless-stopped
+
+    yt-dlp:
+        build: ./build/yt-dlp
+        container_name: yt-dlp
+        user: "${PUID}:${PGID}"
+        environment:
+            - PUID=${PUID}
+            - PGID=${PGID}
+            - TZ=${TZ}
+            - SOURCE_URLS=${SOURCE_URLS}
+            - INTERVAL=${INTERVAL}
+        volumes:
+            - ./config/yt-dlp:/config
+            - ./data/downloads:/downloads
+        restart: unless-stopped
+        networks:
+            - internet
+
+networks:
+    public:
+        name: public
+        external: true
+    private:
+        name: private
+        external: true
+    internal:
+        name: internal
+        external: true
+    internet:
+        name: internet
+        driver: bridge
+        external: true
