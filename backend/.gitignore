@@ -1,0 +1,29 @@
+# Backend-specific gitignore
+
+# Test files
+test_*.py
+*_test.py
+*test*
+*debug*
+
+# Cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.old
