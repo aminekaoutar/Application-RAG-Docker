@@ -5,6 +5,11 @@ pydantic>=2.5.0
 python-multipart>=0.0.6
 requests>=2.31.0
 
+# Web Scraping
+crawl4ai>=0.1.0
+aiohttp>=3.8.0
+beautifulsoup4>=4.12.0
+
 # RAG Dependencies (compatible versions)
 langchain>=0.2.0
 langchain-groq>=0.1.0

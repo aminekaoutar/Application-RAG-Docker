@@ -64,7 +64,7 @@
                 const data = await res.json();
                 
                 if (res.ok) {
-                    showMessage(result, `✅ Success! Scraped: ${data.data.title}`, 'success');
+                    showMessage(result, `✅ Success! ${data.message}`, 'success');
                 } else {
                     showMessage(result, `Error: ${data.detail}`, 'error');
                 }
@@ -90,7 +90,13 @@
                 const data = await res.json();
                 
                 if (res.ok) {
-                    addMessage(msgs, data.answer, 'bot');
+                    // Extract clean answer from LangChain response
+                    let answer = data.answer;
+                    if (answer.startsWith("content='")) {
+                        const endIndex = answer.indexOf("'", 9);
+                        answer = answer.substring(9, endIndex);
+                    }
+                    addMessage(msgs, answer, 'bot');
                     document.getElementById('question').value = '';
                 } else {
                     addMessage(msgs, `Error: ${data.detail}`, 'bot');

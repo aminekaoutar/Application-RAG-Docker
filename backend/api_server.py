@@ -30,6 +30,15 @@ class QueryResponse(BaseModel):
     sources: List[str]
     conversation_id: str
 
+class ScrapeRequest(BaseModel):
+    url: str
+    max_pages: Optional[int] = 10
+
+class ScrapeResponse(BaseModel):
+    status: str
+    pages_scraped: int
+    message: str
+
 class HealthResponse(BaseModel):
     status: str
     vector_store_status: str
@@ -56,6 +65,54 @@ rag_chain = None
 vector_index = None
 metadata = None
 jina_vectorizer = None
+scraped_data = []  # Store dynamically scraped content
+
+# Global function for RAG invocation
+def rag_invoke_with_sources(question: str):
+    """Invoke RAG chain and return both answer and sources"""
+    global vector_index, metadata, jina_vectorizer
+    
+    if vector_index is None or metadata is None or jina_vectorizer is None:
+        return "RAG system not ready", []
+    
+    # Create embedding for query using Jina
+    query_embedding_list = jina_vectorizer.get_embeddings([question])
+    query_embedding = np.array(query_embedding_list, dtype='float32')
+    # Normalize for cosine similarity
+    query_embedding = query_embedding / np.linalg.norm(query_embedding, axis=1, keepdims=True)
+    
+    # Search using FAISS
+    scores, indices = vector_index.search(query_embedding, 3)
+    
+    # Format results
+    content_parts = []
+    sources = []
+    for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
+        if idx < len(metadata):
+            doc_content = metadata[idx]['chunk_text']
+            doc_source = metadata[idx].get('page_url', 'unknown')
+            content_parts.append(doc_content)
+            sources.append(doc_source)
+    
+    context = "\n\n".join(content_parts)
+    
+    # Create prompt with context
+    full_prompt = f"""You are a helpful assistant answering questions about website content.
+Use the provided context to answer questions accurately and concisely.
+
+Context: {context}
+
+Question: {question}"""
+    
+    # Get answer from LLM
+    llm = ChatGroq(
+        model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+        temperature=0.7,
+        max_tokens=1000
+    )
+    answer = llm.invoke(full_prompt)
+    
+    return str(answer), sources
 
 def initialize_rag_system():
     """Initialize the RAG system components."""
@@ -66,7 +123,7 @@ def initialize_rag_system():
         
         # Import Jina vectorizer
         import sys
-        sys.path.append('../data')
+        sys.path.append('/app/data')
         from jina_vectorizer import JinaVectorizer
         
         # Initialize Jina vectorizer
@@ -79,7 +136,7 @@ def initialize_rag_system():
             max_tokens=1000
         )
         
-        # Load vector data
+        # Try to load existing vector data first
         config_file = "./data/digisand_vectors_config.json"
         if os.path.exists(config_file):
             with open(config_file, 'r') as f:
@@ -94,10 +151,11 @@ def initialize_rag_system():
             with open(metadata_file, 'r', encoding='utf-8') as f:
                 metadata = json.load(f)
             
-            print(f"✅ Loaded vector store with {vector_index.ntotal} vectors")
+            print(f"✅ Loaded existing vector store with {vector_index.ntotal} vectors")
         else:
-            print("⚠️  No vector data found, RAG will not work")
-            return False
+            print("⚠️  No existing vector data found")
+            # System can still work if user scrapes new data
+            return True
         
         # Create prompt template
         prompt = ChatPromptTemplate.from_messages([
@@ -110,63 +168,9 @@ def initialize_rag_system():
             ("human", "{question}")
         ])
         
-        # Format documents function
-        def format_docs(docs):
-            sources = []
-            content = []
-            for doc in docs:
-                content.append(doc.page_content)
-                if hasattr(doc, 'metadata') and 'source' in doc.metadata:
-                    sources.append(doc.metadata['source'])
-            return "\n\n".join(content), list(set(sources))
-        
-        # Build chain with Jina similarity search
-        def jina_similarity_search(query: str, k: int = 3):
-            """Search similar content using Jina embeddings and FAISS"""
-            if vector_index is None or metadata is None:
-                return [], []
-            
-            # Create embedding for query using Jina
-            query_embedding_list = jina_vectorizer.get_embeddings([query])
-            query_embedding = np.array(query_embedding_list, dtype='float32')
-            # Normalize for cosine similarity
-            query_embedding = query_embedding / np.linalg.norm(query_embedding, axis=1, keepdims=True)
-            
-            # Search using FAISS
-            scores, indices = vector_index.search(query_embedding, k)
-            
-            # Format results
-            docs = []
-            sources = []
-            for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-                if idx < len(metadata):
-                    doc_content = metadata[idx]['chunk_text']
-                    doc_source = metadata[idx].get('page_url', 'unknown')
-                    docs.append({"page_content": doc_content})
-                    sources.append(doc_source)
-            
-            return docs, list(set(sources))
-        
-        # Build chain with proper formatting
-        def format_context_and_sources(inputs):
-            question = inputs["question"]
-            docs, sources = jina_similarity_search(question, k=3)
-            
-            content_parts = [doc["page_content"] for doc in docs]
-            
-            return {
-                "context": "\n\n".join(content_parts),
-                "sources": sources,
-                "question": question
-            }
-        
-        rag_chain = (
-            {"question": RunnablePassthrough()}
-            | format_context_and_sources
-            | prompt
-            | llm
-            | StrOutputParser()
-        )
+        # Store the invoke function globally
+        global rag_chain
+        rag_chain = rag_invoke_with_sources
         
         print("✅ RAG system initialized successfully!")
         return True
@@ -205,22 +209,24 @@ async def answer_question(request: QueryRequest):
             detail="RAG system not initialized - please check server logs"
         )
     
+    if vector_index is None or metadata is None:
+        raise HTTPException(
+            status_code=503,
+            detail="No vector data loaded - please scrape a website first"
+        )
+    
     try:
         print(f"❓ Processing query: {request.question}")
         
-        # Generate answer using the updated chain
-        answer = rag_chain.invoke(request.question)
-        
-        # Get sources from the chain's context formatter
-        # The sources are already extracted in format_context_and_sources
-        # For now, we'll return empty sources since we don't have access to them here
-        # In a real implementation, you'd want to refactor to return sources properly
+        # Generate answer and get sources
+        answer, sources = rag_chain(request.question)
         
         print(f"✅ Generated answer for: {request.question}")
+        print(f"🔗 Sources: {sources}")
         
         return QueryResponse(
             answer=answer,
-            sources=[],  # Sources extraction needs refactoring
+            sources=sources,
             conversation_id=request.conversation_id or "default"
         )
         
@@ -234,16 +240,16 @@ async def answer_question(request: QueryRequest):
 @app.get("/sources")
 async def get_sources():
     """Get list of available sources in the vector store."""
-    if not vector_store:
+    if not metadata:
         raise HTTPException(
             status_code=503,
-            detail="Vector store not loaded"
+            detail="No metadata loaded"
         )
     
     try:
-        # This would require storing source metadata separately
-        # For now, return a placeholder
-        return {"sources": ["DigiSand website"]}
+        # Extract unique sources from metadata
+        sources = list(set([item.get('page_url', 'unknown') for item in metadata]))
+        return {"sources": sources[:50]}  # Limit to first 50 sources
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -253,14 +259,92 @@ async def get_sources():
 @app.get("/stats")
 async def get_stats():
     """Get system statistics."""
-    if not vector_store:
-        return {"error": "Vector store not loaded"}
-    
     return {
-        "vector_count": vector_store.index.ntotal if vector_store else 0,
+        "vector_count": vector_index.ntotal if vector_index else 0,
+        "sources_count": len(metadata) if metadata else 0,
         "model": os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
-        "status": "ready" if rag_chain else "initializing"
+        "status": "ready" if rag_chain and vector_index else "needs_data"
     }
+
+@app.post("/scrape", response_model=ScrapeResponse)
+async def scrape_website(request: ScrapeRequest):
+    """Scrape a website and create vector embeddings for RAG."""
+    global vector_index, metadata, jina_vectorizer
+    
+    try:
+        print(f"🕷️  Starting scrape for: {request.url}")
+        
+        # Import scraper components
+        import sys
+        sys.path.append('.')
+        from simple_scraper import scrape_single_page, clean_scraped_text
+        from data.vectorizer import DataVectorizer
+        
+        # Scrape the website
+        scraped_data = scrape_single_page(request.url)
+        
+        if not scraped_data["success"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to scrape website: {scraped_data['error']}"
+            )
+        
+        print(f"✅ Successfully scraped: {scraped_data['url']}")
+        print(f"📝 Content length: {len(scraped_data['text'])} characters")
+        
+        # Save scraped data to temporary file
+        temp_file = "temp_scraped_data.json"
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump([scraped_data], f, ensure_ascii=False, indent=2)
+        
+        # Create vectorizer and process the data
+        print("🧠 Creating embeddings...")
+        vectorizer = DataVectorizer(use_jina=True)
+        
+        # Vectorize the scraped data
+        embeddings, new_metadata = vectorizer.vectorize_data(
+            input_file=temp_file,
+            output_prefix="dynamic_vectors"
+        )
+        
+        if embeddings is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create embeddings from scraped data"
+            )
+        
+        # Update global variables
+        global vector_index, metadata, rag_chain
+        vector_index = vectorizer.index
+        metadata = new_metadata
+        
+        # Rebuild the RAG chain with new data
+        rag_chain = rag_invoke_with_sources
+        
+        # Clean up temporary file
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        
+        print(f"✅ Vectorization complete. Indexed {len(embeddings)} chunks.")
+        
+        # Reinitialize RAG chain with new data
+        # Note: We don't need to reinitialize since we updated global variables directly
+        print("✅ RAG system updated with new data")
+        
+        return ScrapeResponse(
+            status="completed",
+            pages_scraped=1,
+            message=f"Successfully scraped and indexed {request.url}. Ready for queries."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error during scraping: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error scraping website: {str(e)}"
+        )
 
 if __name__ == "__main__":
     # Run the server
