@@ -1,4 +1,0 @@
-services:
-  web:
-    build: build/
-    command: python test_app.py

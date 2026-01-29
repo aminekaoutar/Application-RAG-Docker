@@ -1,0 +1,11 @@
+{
+  "dimension": 384,
+  "model_name": "all-MiniLM-L6-v2",
+  "total_vectors": 200,
+  "total_chunks": 200,
+  "files": {
+    "index": "digisand_vectors_index.faiss",
+    "metadata": "digisand_vectors_metadata.json",
+    "embeddings": "digisand_vectors_embeddings.npy"
+  }
+}

@@ -70,3 +70,9 @@ cleaned_data.json
 
 # Documentation
 *.md
+
+# Environment files
+.env
+.env.local
+.env.*.local
+backend/.env

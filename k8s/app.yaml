@@ -1,0 +1,151 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app: rag-application
+spec:
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: backend
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    app: rag-application
+spec:
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: frontend
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: caddy-public
+  labels:
+    app: rag-application
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: caddy-public
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: rag-application
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: application-rag-main-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+        env:
+        - name: GROQ_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: groq-api-key
+        - name: GROQ_MODEL
+          value: llama-3.1-8b-instant
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: rag-application
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: application-rag-main-frontend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caddy-public
+  labels:
+    app: rag-application
+spec:
+  selector:
+    matchLabels:
+      app: caddy-public
+  template:
+    metadata:
+      labels:
+        app: caddy-public
+    spec:
+      containers:
+      - name: caddy-public
+        image: application-rag-main-caddy-public:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caddy-private
+  labels:
+    app: rag-application
+spec:
+  selector:
+    matchLabels:
+      app: caddy-private
+  template:
+    metadata:
+      labels:
+        app: caddy-private
+    spec:
+      containers:
+      - name: caddy-private
+        image: application-rag-main-caddy-private:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: caddy-private
+  labels:
+    app: rag-application
+spec:
+  ports:
+    - port: 8080
+      targetPort: 80
+  selector:
+    app: caddy-private
+  type: NodePort

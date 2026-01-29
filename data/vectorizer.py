@@ -1,25 +1,25 @@
 import json
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
 import pickle
 import os
 from typing import List, Dict, Tuple
 import time
+from jina_vectorizer import JinaVectorizer
 
 class DataVectorizer:
-    def __init__(self, model_name: str = 'all-MiniLM-L6-v2'):
+    def __init__(self, use_jina: bool = True):
         """
-        Initialize the vectorizer with a sentence transformer model.
+        Initialize the vectorizer with Jina API for embeddings.
         
         Args:
-            model_name: Name of the sentence transformer model to use
-                       'all-MiniLM-L6-v2' is fast, lightweight, and free
+            use_jina: Whether to use Jina API instead of local models
         """
-        print(f"🚀 Loading sentence transformer model: {model_name}")
-        self.model = SentenceTransformer(model_name)
-        self.dimension = self.model.get_sentence_embedding_dimension()
-        print(f"✅ Model loaded. Embedding dimension: {self.dimension}")
+        print("🚀 Initializing Jina vectorizer")
+        self.use_jina = use_jina
+        self.jina_vectorizer = JinaVectorizer() if use_jina else None
+        self.dimension = 768  # Jina base model dimension
+        print(f"✅ Jina vectorizer initialized. Embedding dimension: {self.dimension}")
         
         # FAISS index for vector storage
         self.index = None
@@ -70,24 +70,24 @@ class DataVectorizer:
         return chunks
     
     def create_embeddings(self, texts: List[str]) -> np.ndarray:
-        """Create vector embeddings for a list of texts."""
-        print(f"🧠 Creating embeddings for {len(texts)} text chunks...")
+        """Create vector embeddings for a list of texts using Jina API."""
+        print(f"🧠 Creating embeddings for {len(texts)} text chunks using Jina API...")
         start_time = time.time()
         
-        # Generate embeddings with batch processing for memory efficiency
-        embeddings = self.model.encode(
-            texts,
-            show_progress_bar=True,
-            convert_to_numpy=True,
-            normalize_embeddings=True,  # Important for FAISS cosine similarity
-            batch_size=32  # Reduce batch size for memory efficiency
-        )
+        # Get embeddings from Jina API
+        embeddings_list = self.jina_vectorizer.get_embeddings(texts)
+        
+        # Convert to numpy array
+        embeddings = np.array(embeddings_list, dtype='float32')
+        
+        # Normalize embeddings for cosine similarity
+        embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
         
         elapsed = time.time() - start_time
         print(f"✅ Embeddings created in {elapsed:.2f} seconds")
         print(f"📊 Embedding shape: {embeddings.shape}")
         
-        return embeddings.astype('float32')  # FAISS requires float32
+        return embeddings
     
     def build_faiss_index(self, embeddings: np.ndarray):
         """Build FAISS index for efficient similarity search."""
@@ -193,7 +193,7 @@ class DataVectorizer:
         # Save configuration
         config = {
             'dimension': self.dimension,
-            'model_name': 'all-MiniLM-L6-v2',  # Hardcoded since get_model_name() doesn't exist
+            'model_name': 'jina-embeddings-v2-base-en',
             'total_vectors': len(embeddings),
             'total_chunks': len(metadata),
             'files': {
@@ -259,9 +259,11 @@ class DataVectorizer:
             print("❌ No vector index loaded. Please load data first.")
             return []
         
-        # Create embedding for query
-        query_embedding = self.model.encode([query], normalize_embeddings=True)
-        query_embedding = query_embedding.astype('float32')
+        # Create embedding for query using Jina
+        query_embedding_list = self.jina_vectorizer.get_embeddings([query])
+        query_embedding = np.array(query_embedding_list, dtype='float32')
+        # Normalize for cosine similarity
+        query_embedding = query_embedding / np.linalg.norm(query_embedding, axis=1, keepdims=True)
         
         # Search using FAISS
         scores, indices = self.index.search(query_embedding, k)
