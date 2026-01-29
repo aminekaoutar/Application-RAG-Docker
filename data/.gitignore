@@ -1,0 +1,34 @@
+# Data-specific gitignore
+
+# Test files
+test_*.py
+*_test.py
+*test*
+*debug*
+
+# Cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.old
+
+# Large data files (uncomment if needed)
+# *.pkl
+# *.npy
+# *.faiss
+# *.json
+
+# Scraped/raw data
+scraped_data.json
+cleaned_data.json

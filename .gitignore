@@ -43,6 +43,24 @@ tmp/
 temp/
 *.tmp
 
+# Test files
+*test*
+*debug*
+*temp*
+*bak*
+*.bak
+*.old
+
+# API test files
+backend/*test*
+data/*test*
+*response.html
+*response.txt
+
+# Log files
+*.log
+logs/
+
 # IDE files
 .vscode/
 .idea/
@@ -68,11 +86,43 @@ docker-compose*
 scraped_data.json
 cleaned_data.json
 
+<<<<<<< HEAD
 # Documentation
 *.md
+=======
+# Documentation (except README)
+*.md
+!README.md
+!README.*.md
+>>>>>>> 2856b8e2f6a54768904cef29e818e077971e0374
 
 # Environment files
 .env
 .env.local
 .env.*.local
+<<<<<<< HEAD
 backend/.env
+=======
+backend/.env
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Large binary files
+*.zip
+*.tar.gz
+*.exe
+*.dmg
+
+# Docker build artifacts
+Dockerfile*
+docker-compose*
+.dockerignore
+>>>>>>> 2856b8e2f6a54768904cef29e818e077971e0374
